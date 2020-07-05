@@ -55,12 +55,20 @@ const addCopiesToLibrary = function(args, callback, self) {
   })
 };
 
+const filterBooksByOptions = (books, options) => {
+  for (const option in options) {
+    books = books.filter(book => book[option] == options[option]);
+  }
+  return books;
+};
+
 const displayAvailableBooks = function(args, callback) {
   db.all(`SELECT t2.ISBN, t2.title, t2.author, t2.publisher_name,t2.book_category,t2.number_of_copies_total,count(*) as available_copies
   FROM book_copies t1 left join book_titles t2 on t1.ISBN=t2.ISBN where t1.is_available=1 group by t2.ISBN`, (err, table) => {
     if (err) throw err;
+    const books = filterBooksByOptions(table, args.options);
     console.log("");
-    console.table(table);
+    console.table(books);
     this.log();
     callback();
   });
@@ -132,6 +140,17 @@ vorpal
 
 vorpal
   .command('available-books', 'displays all the available books')
+  .option('-i,--ISBN <ISBN>', "display's all the books with given ISBN")
+  .option('-a,--author <author>', "display's all the books with given author")
+  .option('-t,--title <title>', "display's all the books with given title")
+  .option(
+    '-c,--book_category <book_category>',
+    "display's all the books with given category"
+  )
+  .option(
+    '-p,--publisher_name <publisher_name>',
+    "display's all the books with given publisher"
+  )
   .action(displayAvailableBooks);
 
 vorpal
