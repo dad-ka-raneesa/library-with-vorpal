@@ -1,17 +1,12 @@
-const removeTable = function(db, tableName) {
-  db.run(`DROP TABLE IF EXISTS ${tableName}`);
-};
-
 const createTable = function(db, tableName, tableOptions) {
   const options = tableOptions.map(opt => opt.join(' ')).join(',');
-  db.run(`CREATE TABLE ${tableName} (${options})`, (err) => {
+  db.run(`CREATE TABLE IF NOT EXISTS ${tableName} (${options})`, (err) => {
     if (err) throw error;
   });
 };
 
 const createLibraryTables = function(db) {
   db.serialize(() => {
-    removeTable(db, 'book_titles');
     let options = [
       ['ISBN', 'varchar(50)', 'PRIMARY KEY'],
       ['title', 'varchar(50)', 'NOT NULL'],
@@ -22,7 +17,6 @@ const createLibraryTables = function(db) {
     ];
     createTable(db, 'book_titles', options);
 
-    removeTable(db, 'book_copies');
     options = [
       ['serial_number', 'integer', 'PRIMARY KEY', 'AUTOINCREMENT'],
       ['ISBN', 'varchar(50)', 'NOT NULL'],
@@ -34,7 +28,6 @@ const createLibraryTables = function(db) {
     ];
     createTable(db, 'book_copies', options);
 
-    removeTable(db, 'library_log');
     options = [
       ['action varchar(10)', 'CHECK(action = "issue" OR action = "return")'],
       ['date_of_action', ' date'],
@@ -45,4 +38,4 @@ const createLibraryTables = function(db) {
   });
 }
 
-module.exports = { createLibraryTables, createTable, removeTable };
+module.exports = { createLibraryTables };
