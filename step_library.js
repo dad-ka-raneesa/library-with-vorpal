@@ -2,7 +2,6 @@ const sqlite3 = require('sqlite3').verbose();
 const vorpal = require('vorpal')();
 const { createLibraryTables } = require('./tables');
 
-
 let db = new sqlite3.Database('./step_library.db', (err) => {
   if (err) {
     console.error(err.message);
@@ -74,12 +73,12 @@ const displayAvailableBooks = function(args, callback) {
   });
 };
 
-const displayBooks = function(args, callback) {
-  db.all(`SELECT * FROM book_titles`, (err, table) => {
+const displayTable = function(self, table_name, callback) {
+  db.all(`SELECT * FROM ${table_name}`, (err, table) => {
     handleError(err);
     console.log("");
     console.table(table);
-    this.log();
+    self.log();
     callback();
   });
 };
@@ -136,7 +135,10 @@ vorpal
 
 vorpal
   .command('books', 'displays all the books')
-  .action(displayBooks);
+  .action(function(args, callback) {
+    const self = this;
+    displayTable(self, 'book_titles', callback);
+  });
 
 vorpal
   .command('available-books', 'displays all the available books')
@@ -170,13 +172,8 @@ vorpal.command('register-user <username>')
   })
 
 vorpal.command('users').description("Gives library users list.").action(function(args, callback) {
-  db.all(`select * from library_users`, (err, res) => {
-    handleError(err);
-    console.log("");
-    console.table(res);
-    this.log();
-    callback();
-  })
+  const self = this;
+  displayTable(self, 'library_users', callback);
 })
 
 vorpal
