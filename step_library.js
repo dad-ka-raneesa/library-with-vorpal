@@ -65,7 +65,7 @@ const filterBooksByOptions = (books, options) => {
 const displayAvailableBooks = function(args, callback) {
   db.all(`SELECT t2.ISBN, t2.title, t2.author, t2.publisher_name,t2.book_category,t2.number_of_copies_total,count(*) as available_copies
   FROM book_copies t1 left join book_titles t2 on t1.ISBN=t2.ISBN where t1.is_available=1 group by t2.ISBN`, (err, table) => {
-    if (err) throw err;
+    handleError(err);
     const books = filterBooksByOptions(table, args.options);
     console.log("");
     console.table(books);
@@ -76,7 +76,7 @@ const displayAvailableBooks = function(args, callback) {
 
 const displayBooks = function(args, callback) {
   db.all(`SELECT * FROM book_titles`, (err, table) => {
-    if (err) throw err;
+    handleError(err);
     console.log("");
     console.table(table);
     this.log();
@@ -152,6 +152,32 @@ vorpal
     "display's all the books with given publisher"
   )
   .action(displayAvailableBooks);
+
+vorpal.command('register-user <username>')
+  .description("Register's given user into library")
+  .action(function(args, callback) {
+    if (!args.username) {
+      this.log(vorpal.chalk.red('Please Provide name'));
+      callback();
+    }
+    db.all(`select * from library_users`, (err, res) => {
+      handleError(err);
+      const new_id = `USR_${res.length + 1}`;
+      db.run(`INSERT INTO library_users (user_name,library_user_id) values("${args.username}","${new_id}")`, handleError);
+      this.log(vorpal.chalk.green(`Successfully Registered.\nYour user_id is ${new_id}`));
+      callback();
+    })
+  })
+
+vorpal.command('users').description("Gives library users list.").action(function(args, callback) {
+  db.all(`select * from library_users`, (err, res) => {
+    handleError(err);
+    console.log("");
+    console.table(res);
+    this.log();
+    callback();
+  })
+})
 
 vorpal
   .command('clear', 'clear the screen')

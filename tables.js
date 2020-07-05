@@ -35,6 +35,12 @@ const createLibraryTables = function(db) {
       ['serial_number', 'integer']
     ];
     createTable(db, 'library_log', options);
+
+    options = [
+      ['user_name', ' varchar(100)'],
+      ['library_user_id', 'varchar(50)', 'PRIMARY KEY'],
+    ];
+    createTable(db, 'library_users', options);
   });
 }
 
