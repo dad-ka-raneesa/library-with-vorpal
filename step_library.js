@@ -29,7 +29,7 @@ const addCopies = function(args, callback) {
   for (let i = 0; i < args.number_of_copies; i++) {
     db.run(copiesQuery, handleError);
   }
-  callback();
+  callback && callback();
 };
 
 const addBookToLibrary = function(args, callback) {
@@ -37,6 +37,22 @@ const addBookToLibrary = function(args, callback) {
   '${args.author}','${args.publisher_name}','${args.book_category}','${args.number_of_copies}')`;
   db.run(titlesQuery, handleError);
   addCopies(args, callback);
+};
+
+const addCopiesToLibrary = function(args, callback, self) {
+  db.all(`select * from book_titles where ISBN=${args.ISBN}`, (err, res) => {
+    handleError(err);
+    let message = `No book found with ISBN ${args.ISBN}\nPlease add a book`;
+    let message_color = 'red';
+    if (res.length) {
+      addNoOfBooks(args);
+      addCopies(args);
+      message = `Added ${args.number_of_copies} copies for ISBN ${args.ISBN}`;
+      message_color = 'green';
+    }
+    self.log(vorpal.chalk[message_color](message));
+    callback();
+  })
 };
 
 const displayAvailableBooks = function(args, callback) {
@@ -97,6 +113,7 @@ vorpal
   .command('add-copies')
   .description('Adds additions copies when book is exists')
   .action(function(args, callback) {
+    const self = this;
     this.prompt([
       {
         type: 'input',
@@ -106,10 +123,7 @@ vorpal
         type: 'input',
         name: 'number_of_copies',
         message: 'Enter number of copies : '
-      }], (res) => {
-        addNoOfBooks(res);
-        addCopies(res, callback);
-      });
+      }], (args) => addCopiesToLibrary(args, callback, self));
   })
 
 vorpal
