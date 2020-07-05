@@ -16,18 +16,27 @@ const handleError = function(err) {
   if (err) throw err
 };
 
-const addBookToLibrary = function(args, callback) {
-  const titlesQuery = `INSERT INTO book_titles values ('${args.ISBN}','${args.title}',
-  '${args.author}','${args.publisher_name}','${args.book_category}','${args.number_of_copies_total}')`;
-  db.run(titlesQuery, handleError);
+const addNoOfBooks = function(args) {
+  db.run(`Update book_titles
+  set number_of_copies_total = number_of_copies_total + ${args.number_of_copies}
+  where ISBN = ${args.ISBN}`, handleError)
+}
 
+const addCopies = function(args, callback) {
   const time = new Date().toJSON();
   const copiesQuery = `INSERT INTO book_copies (ISBN,is_available,enrolled_date,available_from) 
   values ('${args.ISBN}',1,'${time}', '${time}')`;
-  for (let i = 0; i < args.number_of_copies_total; i++) {
+  for (let i = 0; i < args.number_of_copies; i++) {
     db.run(copiesQuery, handleError);
   }
   callback();
+};
+
+const addBookToLibrary = function(args, callback) {
+  const titlesQuery = `INSERT INTO book_titles values ('${args.ISBN}','${args.title}',
+  '${args.author}','${args.publisher_name}','${args.book_category}','${args.number_of_copies}')`;
+  db.run(titlesQuery, handleError);
+  addCopies(args, callback);
 };
 
 const displayAvailableBooks = function(args, callback) {
@@ -78,11 +87,30 @@ vorpal
       message: 'Enter book category : '
     }, {
       type: 'input',
-      name: 'number_of_copies_total',
+      name: 'number_of_copies',
       message: 'Enter number of copies : '
-    },
+    }
     ], (res) => addBookToLibrary(res, callback))
   });
+
+vorpal
+  .command('add-copies')
+  .description('Adds additions copies when book is exists')
+  .action(function(args, callback) {
+    this.prompt([
+      {
+        type: 'input',
+        name: 'ISBN',
+        message: 'Enter ISBN : '
+      }, {
+        type: 'input',
+        name: 'number_of_copies',
+        message: 'Enter number of copies : '
+      }], (res) => {
+        addNoOfBooks(res);
+        addCopies(res, callback);
+      });
+  })
 
 vorpal
   .command('books', 'displays all the books')
