@@ -3,14 +3,14 @@ const vorpal = require('vorpal')();
 const { createLibraryTables } = require('./tables');
 
 
-let db = new sqlite3.Database('./db/step_library.db', (err) => {
+let db = new sqlite3.Database('./step_library.db', (err) => {
   if (err) {
     console.error(err.message);
     process.exit(1);
   }
 });
 
-// createLibraryTables(db);
+createLibraryTables(db);
 
 const handleError = function(err) {
   if (err) throw err
@@ -48,14 +48,41 @@ const displayBooks = function(args, callback) {
     console.table(table);
     this.log();
     callback();
-
   });
 };
 
 vorpal
-  .command('add-book <ISBN> <title> <author> <publisher_name> <book_category> <number_of_copies_total>')
+  .command('add-book')
   .description('Add a book into library')
-  .action(addBookToLibrary);
+  .action(function(args, callback) {
+    this.prompt([{
+      type: 'input',
+      name: 'ISBN',
+      message: 'Enter ISBN number : '
+    }, {
+      type: 'input',
+      name: 'title',
+      message: 'Enter title : '
+    },
+    {
+      type: 'input',
+      name: 'author',
+      message: 'Enter author name : '
+    }, {
+      type: 'input',
+      name: 'publisher_name',
+      message: 'Enter publisher : '
+    }, {
+      type: 'input',
+      name: 'book_category',
+      message: 'Enter book category : '
+    }, {
+      type: 'input',
+      name: 'number_of_copies_total',
+      message: 'Enter number of copies : '
+    },
+    ], (res) => addBookToLibrary(res, callback))
+  });
 
 vorpal
   .command('books', 'displays all the books')
@@ -66,7 +93,7 @@ vorpal
   .action(displayAvailableBooks);
 
 vorpal
-  .command('clear', 'clear')
+  .command('clear', 'clear the screen')
   .action(function(args, callback) {
     console.clear();
     this.log();
