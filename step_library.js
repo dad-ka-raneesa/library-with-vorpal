@@ -12,13 +12,13 @@ let db = new sqlite3.Database('./step_library.db', (err) => {
 createLibraryTables(db);
 
 const handleError = function(err) {
-  if (err) throw err
+  if (err) console.error(err.message);
 };
 
 const addNoOfBooks = function(args) {
-  db.run(`Update book_titles
-  set number_of_copies_total = number_of_copies_total + ${args.number_of_copies}
-  where ISBN = ${args.ISBN}`, handleError)
+  db.run(`UPDATE book_titles
+  SET number_of_copies_total = number_of_copies_total + ${args.number_of_copies}
+  WHERE ISBN = ${args.ISBN}`, handleError)
 }
 
 const addCopies = function(args, callback) {
@@ -39,7 +39,7 @@ const addBookToLibrary = function(args, callback) {
 };
 
 const addCopiesToLibrary = function(args, callback, self) {
-  db.all(`select * from book_titles where ISBN=${args.ISBN}`, (err, res) => {
+  db.all(`SELECT * FROM book_titles WHERE ISBN=${args.ISBN}`, (err, res) => {
     handleError(err);
     let message = `No book found with ISBN ${args.ISBN}\nPlease add a book`;
     let message_color = 'red';
@@ -158,10 +158,6 @@ vorpal
 vorpal.command('register-user <username>')
   .description("Register's given user into library")
   .action(function(args, callback) {
-    if (!args.username) {
-      this.log(vorpal.chalk.red('Please Provide name'));
-      callback();
-    }
     db.all(`select * from library_users`, (err, res) => {
       handleError(err);
       const new_id = `USR_${res.length + 1}`;
@@ -175,6 +171,49 @@ vorpal.command('users').description("Gives library users list.").action(function
   const self = this;
   displayTable(self, 'library_users', callback);
 })
+
+const isValidUser = function(userId) {
+  return new Promise((resolve, reject) => {
+    db.all(`select * from library_users where library_user_id="${userId}"`, (err, res) => {
+      handleError(err);
+      if (res.length) resolve(res);
+      else reject('no user with this ')
+    })
+  })
+};
+
+const issueBookToUser = function(book, userId) {
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION');
+
+    db.run(`INSERT INTO library_log( action, date_of_action, library_user_id, serial_number ) VALUES ("issue",datetime('now'), '${userId}', '${book.serial_number}');`, handleError);
+
+    db.run(`UPDATE book_copies set is_available = 0, issued_date = datetime('now'), available_from = datetime('now', '+15 days'), library_user_id = "${userId}" WHERE serial_number = "${book.serial_number}";`, handleError);
+
+    db.run('END TRANSACTION');
+  });
+}
+
+vorpal
+  .command('issue-book <ISBN> <userId>', 'Issue a book from library')
+  .action(function(args, callback) {
+    isValidUser(args.userId).then(res => {
+      db.all(`select * from book_copies where ISBN = ${args.ISBN} AND is_available=1`, (err, availableBooks) => {
+        if (!availableBooks.length) {
+          this.log(vorpal.chalk.red('The book is not available'));
+          callback();
+          return;
+        }
+        const book = availableBooks.shift();
+        issueBookToUser(book, args.userId);
+        this.log(vorpal.chalk.green(`issued successfully\nBook Details : \nISBN : ${args.ISBN}\nserial_number : ${book.serial_number}`));
+        callback();
+      })
+    }).catch(err => {
+      this.log(vorpal.chalk.red('Invalid user id.\nPlease Enter valid user id'));
+      callback();
+    })
+  })
 
 vorpal
   .command('clear', 'clear the screen')
