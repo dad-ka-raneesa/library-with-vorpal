@@ -7,7 +7,8 @@ const {
   registerUser,
   issueBook,
   returnBook,
-  closeDb
+  closeDb,
+  displayUserLogs
 } = require('./handlers');
 
 const exit = vorpal.find('exit');
@@ -109,6 +110,13 @@ vorpal
   .action(function(args, callback) {
     const self = this;
     returnBook(self, args.userId, args.serial_number, callback);
+  })
+
+vorpal
+  .command('user-logs <userId>', 'Displays all logs of a particular user')
+  .action(function(args, callback) {
+    const self = this;
+    displayUserLogs(self, args.userId, callback);
   })
 
 vorpal
