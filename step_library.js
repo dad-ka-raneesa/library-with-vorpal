@@ -2,18 +2,12 @@ const sqlite3 = require('sqlite3').verbose();
 const vorpal = require('vorpal')();
 const { createLibraryTables } = require('./tables');
 
-let db = new sqlite3.Database('./step_library.db', (err) => {
-  if (err) {
-    console.error(err.message);
-    process.exit(1);
-  }
-});
-
-createLibraryTables(db);
-
 const handleError = function(err) {
-  if (err) console.error(err.message);
+  if (err) throw (err.message);
 };
+
+let db = new sqlite3.Database('./step_library.db', handleError);
+createLibraryTables(db);
 
 const addNoOfBooks = function(args) {
   db.run(`UPDATE book_titles
@@ -82,7 +76,39 @@ const displayTable = function(self, table_name, callback) {
     callback();
   });
 };
+const isValidUser = function(userId) {
+  return new Promise((resolve, reject) => {
+    db.all(`select * from library_users where library_user_id="${userId}"`, (err, res) => {
+      handleError(err);
+      if (res.length) resolve(res);
+      else reject('no user with this ')
+    })
+  })
+};
 
+const issueBookToUser = function(book, userId) {
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION');
+
+    db.run(`INSERT INTO library_log( action, date_of_action, library_user_id, serial_number ) VALUES ("issue",datetime('now'), '${userId}', '${book.serial_number}');`, handleError);
+
+    db.run(`UPDATE book_copies set is_available = 0, issued_date = datetime('now'), available_from = datetime('now', '+15 days'), library_user_id = "${userId}" WHERE serial_number = "${book.serial_number}";`, handleError);
+
+    db.run('END TRANSACTION');
+  });
+}
+
+const returnBookToLibrary = function(serial_number, userId) {
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION');
+
+    db.run(`INSERT INTO library_log( action, date_of_action, library_user_id, serial_number ) VALUES ("return",datetime('now'), '${userId}', '${serial_number}');`, handleError);
+
+    db.run(`UPDATE book_copies set is_available = 1, issued_date = null, available_from = datetime('now'), library_user_id = null WHERE serial_number = "${serial_number}";`, handleError);
+
+    db.run('END TRANSACTION');
+  });
+}
 vorpal
   .command('add-book')
   .description('Add a book into library')
@@ -172,28 +198,6 @@ vorpal.command('users').description("Gives library users list.").action(function
   displayTable(self, 'library_users', callback);
 })
 
-const isValidUser = function(userId) {
-  return new Promise((resolve, reject) => {
-    db.all(`select * from library_users where library_user_id="${userId}"`, (err, res) => {
-      handleError(err);
-      if (res.length) resolve(res);
-      else reject('no user with this ')
-    })
-  })
-};
-
-const issueBookToUser = function(book, userId) {
-  db.serialize(() => {
-    db.run('BEGIN TRANSACTION');
-
-    db.run(`INSERT INTO library_log( action, date_of_action, library_user_id, serial_number ) VALUES ("issue",datetime('now'), '${userId}', '${book.serial_number}');`, handleError);
-
-    db.run(`UPDATE book_copies set is_available = 0, issued_date = datetime('now'), available_from = datetime('now', '+15 days'), library_user_id = "${userId}" WHERE serial_number = "${book.serial_number}";`, handleError);
-
-    db.run('END TRANSACTION');
-  });
-}
-
 vorpal
   .command('issue-book <ISBN> <userId>', 'Issue a book from library')
   .action(function(args, callback) {
@@ -206,7 +210,27 @@ vorpal
         }
         const book = availableBooks.shift();
         issueBookToUser(book, args.userId);
-        this.log(vorpal.chalk.green(`issued successfully\nBook Details : \nISBN : ${args.ISBN}\nserial_number : ${book.serial_number}`));
+        this.log(vorpal.chalk.green(`Issued successfully\nBook Details : \nISBN : ${args.ISBN}\nserial_number : ${book.serial_number}`));
+        callback();
+      })
+    }).catch(err => {
+      this.log(vorpal.chalk.red('Invalid user id.\nPlease Enter valid user id'));
+      callback();
+    })
+  })
+
+vorpal
+  .command('return-book <serial_number> <userId>', 'Return a book to library')
+  .action(function(args, callback) {
+    isValidUser(args.userId).then(res => {
+      db.all(`select * from book_copies where serial_number = ${args.serial_number} AND is_available=0`, (err, [issuedBook]) => {
+        if (!issuedBook) {
+          this.log(vorpal.chalk.red('You cannot return this book'));
+          callback();
+          return;
+        }
+        returnBookToLibrary(args.serial_number, args.userId);
+        this.log(vorpal.chalk.green(`Returned book with ${args.serial_number} serial_number`));
         callback();
       })
     }).catch(err => {
