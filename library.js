@@ -42,7 +42,10 @@ const attachCommands = function() {
         name: 'number_of_copies',
         message: 'Enter number of copies : '
       }
-      ], (res) => addBookToLibrary(res, callback))
+      ], (res) => {
+        const self = this;
+        addBookToLibrary(self, res, callback)
+      })
     });
 
   vorpal
@@ -59,7 +62,7 @@ const attachCommands = function() {
           type: 'input',
           name: 'number_of_copies',
           message: 'Enter number of copies : '
-        }], (args) => addCopiesToLibrary(args, callback, self));
+        }], (args) => addCopiesToLibrary(self, args, callback));
     })
 
   vorpal

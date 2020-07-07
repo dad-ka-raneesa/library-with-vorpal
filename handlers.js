@@ -16,41 +16,46 @@ const closeDb = function() {
   process.exit(0);
 }
 
-const addNoOfBooks = function(args) {
-  db.run(`UPDATE book_titles
-  SET number_of_copies_total = number_of_copies_total + ${args.number_of_copies}
-  WHERE ISBN = ${args.ISBN}`, handleError)
-}
-
-const addCopies = function(args, callback) {
+const addCopies = function(args) {
   const time = new Date().toJSON();
   const copiesQuery = `INSERT INTO book_copies (ISBN,is_available,enrolled_date,available_from) 
   VALUES ('${args.ISBN}',1,'${time}', '${time}')`;
   for (let i = 0; i < args.number_of_copies; i++) {
     db.run(copiesQuery, handleError);
   }
-  callback && callback();
+  db.run(`UPDATE book_titles
+  SET number_of_copies_total = number_of_copies_total + ${args.number_of_copies}
+  WHERE ISBN = ${args.ISBN}`, handleError);
 };
 
-const addBookToLibrary = function(args, callback) {
+const addBookToLibrary = function(self, args, callback) {
   const titlesQuery = `INSERT INTO book_titles VALUES ('${args.ISBN}','${args.title}',
-  '${args.author}','${args.publisher_name}','${args.book_category}','${args.number_of_copies}')`;
-  db.run(titlesQuery, handleError);
-  addCopies(args, callback);
+  '${args.author}','${args.publisher_name}','${args.book_category}',0)`;
+  db.run(titlesQuery, (err) => {
+    handleError(err);
+    addCopies(args);
+    self.log(`Added book successfully with ${args.ISBN}`);
+    callback();
+  });
 };
 
-const addCopiesToLibrary = function(args, callback, self) {
-  db.all(`SELECT * FROM book_titles WHERE ISBN=${args.ISBN}`, (err, res) => {
-    handleError(err);
-    let message = `No book found with ISBN ${args.ISBN}\nPlease add a book`;
-    let message_color = 'red';
-    if (res.length) {
-      addNoOfBooks(args);
-      addCopies(args);
-      message = `Added ${args.number_of_copies} copies for ISBN ${args.ISBN}`;
-      message_color = 'green';
-    }
-    self.log(vorpal.chalk[message_color](message));
+const isValidBook = function(ISBN) {
+  return new Promise((resolve, reject) => {
+    db.all(`SELECT * FROM book_titles WHERE ISBN=${ISBN}`, (err, res) => {
+      handleError(err);
+      if (res.length) resolve('Valid Book')
+      else reject('Invalid Book')
+    })
+  });
+};
+
+const addCopiesToLibrary = function(self, args, callback) {
+  isValidBook(args.ISBN).then(res => {
+    addCopies(args);
+    self.log(vorpal.chalk.green(`Added ${args.number_of_copies} copies for ISBN ${args.ISBN}`));
+    callback();
+  }).catch(err => {
+    self.log(vorpal.chalk.red(`No book found with ISBN ${args.ISBN}\nPlease add book`));
     callback();
   })
 };
@@ -84,27 +89,35 @@ const displayTable = function(self, table_name, callback) {
   });
 };
 
-const issueBookTransaction = function(book, userId) {
+const issueBookFromLibrary = function(self, book, userId, callback) {
   db.serialize(() => {
-    db.run('BEGIN TRANSACTION');
+    db.run('BEGIN TRANSACTION', handleError);
 
     db.run(`INSERT INTO library_log( action, date_of_action, library_user_id, serial_number ) VALUES ("issue",datetime('now'), '${userId}', '${book.serial_number}');`, handleError);
 
     db.run(`UPDATE book_copies SET is_available = 0, issued_date = datetime('now'), available_from = datetime('now', '+15 days'), library_user_id = "${userId}" WHERE serial_number = "${book.serial_number}";`, handleError);
 
-    db.run('END TRANSACTION');
+    db.run('END TRANSACTION', (err) => {
+      handleError(err);
+      self.log(vorpal.chalk.green(`Issued successfully\nBook Details : \nISBN : ${book.ISBN}\nserial_number : ${book.serial_number}`));
+      callback();
+    });
   });
 }
 
-const returnBookTransaction = function(serial_number, userId) {
+const returnBookToLibrary = function(self, serial_number, userId, callback) {
   db.serialize(() => {
-    db.run('BEGIN TRANSACTION');
+    db.run('BEGIN TRANSACTION', handleError);
 
     db.run(`INSERT INTO library_log( action, date_of_action, library_user_id, serial_number ) VALUES ("return",datetime('now'), '${userId}', '${serial_number}');`, handleError);
 
     db.run(`UPDATE book_copies SET is_available = 1, issued_date = null, available_from = datetime('now'), library_user_id = null WHERE serial_number = "${serial_number}";`, handleError);
 
-    db.run('END TRANSACTION');
+    db.run('END TRANSACTION', (err) => {
+      handleError(err);
+      self.log(vorpal.chalk.green(`Returned book with ${serial_number} serial_number`));
+      callback();
+    });
   });
 }
 
@@ -112,9 +125,11 @@ const registerUser = function(self, username, callback) {
   db.all(`SELECT * FROM library_users`, (err, res) => {
     handleError(err);
     const new_id = `USR_${res.length + 1}`;
-    db.run(`INSERT INTO library_users (user_name,library_user_id) VALUES("${username}","${new_id}")`, handleError);
-    self.log(vorpal.chalk.green(`Successfully Registered.\nYour user_id is ${new_id}`));
-    callback();
+    db.run(`INSERT INTO library_users (user_name,library_user_id) VALUES("${username}","${new_id}")`, (err) => {
+      handleError(err);
+      self.log(vorpal.chalk.green(`Successfully Registered.\nYour user_id is ${new_id}`));
+      callback();
+    });
   })
 }
 
@@ -140,14 +155,11 @@ const isBookAvailable = function(ISBN) {
 
 const issueBook = function(self, ISBN, userId, callback) {
   isValidUser(userId).then(res => {
-    isBookAvailable(ISBN).then(book => {
-      issueBookTransaction(book, userId);
-      self.log(vorpal.chalk.green(`Issued successfully\nBook Details : \nISBN : ${ISBN}\nserial_number : ${book.serial_number}`));
-      callback();
-    }).catch(err => {
-      self.log(vorpal.chalk.red('The book is not available'));
-      callback();
-    })
+    isBookAvailable(ISBN).then(book => issueBookFromLibrary(self, book, userId, callback))
+      .catch(err => {
+        self.log(vorpal.chalk.red('The book is not available'));
+        callback();
+      })
   }).catch(err => {
     self.log(vorpal.chalk.red('Invalid user id.\nPlease Enter valid user id'));
     callback();
@@ -166,14 +178,11 @@ const isAnIssuedBook = function(userId, serial_number) {
 
 const returnBook = function(self, userId, serial_number, callback) {
   isValidUser(userId).then(res => {
-    isAnIssuedBook(userId, serial_number).then(issuedBook => {
-      returnBookTransaction(serial_number, userId);
-      self.log(vorpal.chalk.green(`Returned book with ${issuedBook.serial_number} serial_number`));
-      callback();
-    }).catch(err => {
-      self.log(vorpal.chalk.red('You cannot return this book'));
-      callback();
-    })
+    isAnIssuedBook(userId, serial_number).then(issuedBook => returnBookToLibrary(self, issuedBook.serial_number, userId, callback))
+      .catch(err => {
+        self.log(vorpal.chalk.red('You cannot return this book'));
+        callback();
+      })
   }).catch(err => {
     self.log(vorpal.chalk.red('Invalid user id.\nPlease Enter valid user id'));
     callback();
@@ -183,12 +192,12 @@ const returnBook = function(self, userId, serial_number, callback) {
 const displayUserLogs = function(self, userId, callback) {
   isValidUser(userId).then(res => {
     db.all(`SELECT 
+    CASE 
+    WHEN t1.action ='issue' THEN 'Borrowed' 
+    ELSE 'Returned' END AS action,
     t2.ISBN,
     t1.serial_number,
-    t1.date_of_action,
-    CASE 
-      WHEN t1.action ='issue' THEN 'Borrowed' 
-      ELSE 'Returned' END AS action
+    t1.date_of_action
     FROM library_log t1 LEFT JOIN book_copies t2 ON t1.serial_number=t2.serial_number
     WHERE t1.library_user_id="${userId}"`, (err, res) => {
       handleError(err);
