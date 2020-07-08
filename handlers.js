@@ -48,7 +48,7 @@ const addBookToLibrary = function(self, args, callback) {
     db.run(titlesQuery, (err) => {
       handleError(err);
       addCopies(args);
-      self.log(vorpal.chalk.green(`Added book successfully with ISBN ${args.ISBN}`));
+      self.log(vorpal.chalk.green(`\nAdded book successfully with ISBN ${args.ISBN}`));
       callback();
     });
   })
@@ -60,7 +60,7 @@ const addCopiesToLibrary = function(self, args, callback) {
     self.log(vorpal.chalk.green(`Added ${args.number_of_copies} copies for ISBN ${args.ISBN}`));
     callback();
   }).catch(err => {
-    self.log(vorpal.chalk.red(`No book found with ISBN ${args.ISBN}\nPlease add book`));
+    self.log(vorpal.chalk.red(`\nNo book found with ISBN ${args.ISBN}\nPlease add book`));
     callback();
   })
 };
@@ -104,7 +104,7 @@ const issueBookFromLibrary = function(self, book, userId, callback) {
 
     db.run('END TRANSACTION', (err) => {
       handleError(err);
-      self.log(vorpal.chalk.green(`Issued successfully\nBook Details : \nISBN : ${book.ISBN}\nserial_number : ${book.serial_number}`));
+      self.log(vorpal.chalk.green(`\nIssued successfully\nBook Details : \nISBN : ${book.ISBN}\nserial_number : ${book.serial_number}`));
       callback();
     });
   });
@@ -120,7 +120,7 @@ const returnBookToLibrary = function(self, serial_number, userId, callback) {
 
     db.run('END TRANSACTION', (err) => {
       handleError(err);
-      self.log(vorpal.chalk.green(`Returned book with ${serial_number} serial_number`));
+      self.log(vorpal.chalk.green(`\nReturned book with ${serial_number} serial_number`));
       callback();
     });
   });
@@ -132,7 +132,7 @@ const registerUser = function(self, username, callback) {
     const new_id = `USR_${res.length + 1}`;
     db.run(`INSERT INTO library_users (user_name,library_user_id) VALUES("${username}","${new_id}")`, (err) => {
       handleError(err);
-      self.log(vorpal.chalk.green(`Successfully Registered.\nYour user_id is ${new_id}`));
+      self.log(vorpal.chalk.green(`\nSuccessfully Registered.\nYour user_id is ${new_id}`));
       callback();
     });
   })
@@ -162,11 +162,11 @@ const issueBook = function(self, ISBN, userId, callback) {
   isValidUser(userId).then(res => {
     isBookAvailable(ISBN).then(book => issueBookFromLibrary(self, book, userId, callback))
       .catch(err => {
-        self.log(vorpal.chalk.red('The book is not available'));
+        self.log(vorpal.chalk.red('\nThe book is not available'));
         callback();
       })
   }).catch(err => {
-    self.log(vorpal.chalk.red('Invalid user id.\nPlease Enter valid user id'));
+    self.log(vorpal.chalk.red('\nInvalid user id.\nPlease Enter valid user id'));
     callback();
   })
 }
@@ -185,11 +185,11 @@ const returnBook = function(self, userId, serial_number, callback) {
   isValidUser(userId).then(res => {
     isAnIssuedBook(userId, serial_number).then(issuedBook => returnBookToLibrary(self, issuedBook.serial_number, userId, callback))
       .catch(err => {
-        self.log(vorpal.chalk.red('You cannot return this book'));
+        self.log(vorpal.chalk.red('\nYou cannot return this book'));
         callback();
       })
   }).catch(err => {
-    self.log(vorpal.chalk.red('Invalid user id.\nPlease Enter valid user id'));
+    self.log(vorpal.chalk.red('\nInvalid user id.\nPlease Enter valid user id'));
     callback();
   })
 }
@@ -212,7 +212,7 @@ const displayUserLogs = function(self, userId, callback) {
       callback();
     })
   }).catch(err => {
-    self.log(vorpal.chalk.red('Invalid user id.\nPlease Enter valid user id'));
+    self.log(vorpal.chalk.red('\nInvalid user id.\nPlease Enter valid user id'));
     callback();
   })
 };
