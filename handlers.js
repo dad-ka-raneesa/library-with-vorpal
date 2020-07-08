@@ -57,7 +57,7 @@ const addBookToLibrary = function(self, args, callback) {
 const addCopiesToLibrary = function(self, args, callback) {
   isValidBook(args.ISBN).then(res => {
     addCopies(args);
-    self.log(vorpal.chalk.green(`Added ${args.number_of_copies} copies for ISBN ${args.ISBN}`));
+    self.log(vorpal.chalk.green(`\nAdded ${args.number_of_copies} copies for ISBN ${args.ISBN}`));
     callback();
   }).catch(err => {
     self.log(vorpal.chalk.red(`\nNo book found with ISBN ${args.ISBN}\nPlease add book`));
