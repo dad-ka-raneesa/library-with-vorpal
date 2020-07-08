@@ -28,17 +28,6 @@ const addCopies = function(args) {
   WHERE ISBN = ${args.ISBN}`, handleError);
 };
 
-const addBookToLibrary = function(self, args, callback) {
-  const titlesQuery = `INSERT INTO book_titles VALUES ('${args.ISBN}','${args.title}',
-  '${args.author}','${args.publisher_name}','${args.book_category}',0)`;
-  db.run(titlesQuery, (err) => {
-    handleError(err);
-    addCopies(args);
-    self.log(`Added book successfully with ${args.ISBN}`);
-    callback();
-  });
-};
-
 const isValidBook = function(ISBN) {
   return new Promise((resolve, reject) => {
     db.all(`SELECT * FROM book_titles WHERE ISBN=${ISBN}`, (err, res) => {
@@ -47,6 +36,22 @@ const isValidBook = function(ISBN) {
       else reject('Invalid Book')
     })
   });
+};
+
+const addBookToLibrary = function(self, args, callback) {
+  isValidBook(args.ISBN).then(res => {
+    self.log(vorpal.chalk.red(`\nThe book with ISBN ${args.ISBN} already exists in Library`));
+    callback();
+  }).catch(err => {
+    const titlesQuery = `INSERT INTO book_titles VALUES ('${args.ISBN}','${args.title}',
+  '${args.author}','${args.publisher_name}','${args.book_category}',0)`;
+    db.run(titlesQuery, (err) => {
+      handleError(err);
+      addCopies(args);
+      self.log(vorpal.chalk.green(`Added book successfully with ISBN ${args.ISBN}`));
+      callback();
+    });
+  })
 };
 
 const addCopiesToLibrary = function(self, args, callback) {

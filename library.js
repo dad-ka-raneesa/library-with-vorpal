@@ -14,7 +14,7 @@ const {
 const attachCommands = function() {
   vorpal
     .command('add-book')
-    .description('Add a book into library')
+    .description('Adds book into the library')
     .action(function(args, callback) {
       this.prompt([{
         type: 'input',
@@ -50,7 +50,7 @@ const attachCommands = function() {
 
   vorpal
     .command('add-copies')
-    .description('Adds additions copies when book is exists')
+    .description('Adds additional copies of an existing book in the library')
     .action(function(args, callback) {
       const self = this;
       this.prompt([
@@ -88,33 +88,35 @@ const attachCommands = function() {
     .action(displayAvailableBooks);
 
   vorpal.command('register-user <username>')
-    .description("Register's given user into library")
+    .description("Registers the given user into the library")
     .action(function(args, callback) {
       const self = this;
       registerUser(self, args.username, callback);
     })
 
-  vorpal.command('users').description("Gives library users list.").action(function(args, callback) {
-    const self = this;
-    displayTable(self, 'library_users', callback);
-  })
+  vorpal.command('users')
+    .description("Gives all the users of the library")
+    .action(function(args, callback) {
+      const self = this;
+      displayTable(self, 'library_users', callback);
+    })
 
   vorpal
-    .command('issue-book <ISBN> <userId>', 'Issue a book from library')
+    .command('issue-book <ISBN> <userId>', 'Issues a book from the library')
     .action(function(args, callback) {
       const self = this;
       issueBook(self, args.ISBN, args.userId, callback);
     })
 
   vorpal
-    .command('return-book <serial_number> <userId>', 'Return a book to library')
+    .command('return-book <serial_number> <userId>', 'Returns a book to the library')
     .action(function(args, callback) {
       const self = this;
       returnBook(self, args.userId, args.serial_number, callback);
     })
 
   vorpal
-    .command('user-logs <userId>', 'Displays all logs of a particular user')
+    .command('user-logs <userId>', 'Displays a particular user\'s log')
     .action(function(args, callback) {
       const self = this;
       displayUserLogs(self, args.userId, callback);
